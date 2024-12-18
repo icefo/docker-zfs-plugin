@@ -1,38 +1,44 @@
 package main
 
 import (
+	zfsdriver "docker-zfs-plugin/zfs"
+	"log/slog"
 	"os"
 	"strconv"
 
-	zfsdriver "github.com/TrilliumIT/docker-zfs-plugin/zfs"
 	"github.com/coreos/go-systemd/activation"
 	"github.com/docker/go-plugins-helpers/volume"
-	log "github.com/sirupsen/logrus"
 )
 
 func main() {
+	lvl := new(slog.LevelVar)
+	lvl.Set(slog.LevelInfo)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: lvl,
+	}))
+
 	debug := os.Getenv("DEBUG")
 	if ok, _ := strconv.ParseBool(debug); ok {
-		log.SetLevel(log.DebugLevel)
+		lvl.Set(slog.LevelDebug)
 	}
 
-	d, err := zfsdriver.NewZfsDriver()
+	d, err := zfsdriver.NewZfsDriver(logger)
 	if err != nil {
 		panic(err)
 	}
 
 	h := volume.NewHandler(d)
 
-	listeners, _ := activation.Listeners() // wtf coreos, this funciton never returns errors
+	listeners, _ := activation.Listeners() // wtf coreos, this function never returns errors
 	if len(listeners) > 1 {
-		log.Warn("driver does not support multiple sockets")
+		logger.Warn("driver does not support multiple sockets")
 	}
 	if len(listeners) == 0 {
-		log.Debug("launching volume handler.")
+		logger.Debug("launching volume handler.")
 		h.ServeUnix("zfs-v2", 0)
 	} else {
 		l := listeners[0]
-		log.WithField("listener", l.Addr().String()).Debug("launching volume handler")
+		logger.Debug("launching volume handler", "listener", l.Addr().String())
 		h.Serve(l)
 	}
 }

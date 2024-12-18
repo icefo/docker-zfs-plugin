@@ -1,5 +1,5 @@
-PLUGIN_NAME = TrilliumIT/zfs
-PLUGIN_TAG ?= 2.0
+PLUGIN_NAME = icefo/zfs
+PLUGIN_TAG ?= 2.1
 
 all: clean rootfs create
 

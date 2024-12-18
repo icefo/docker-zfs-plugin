@@ -1,4 +1,4 @@
-FROM golang:1.13-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /plugin
 
@@ -11,8 +11,8 @@ RUN go install
 
 CMD ["/go/bin/docker-zfs-plugin"]
 
-FROM alpine
-RUN apk update && apk add zfs zfs-lts
+FROM alpine:3
+RUN apk upgrade --no-cache && apk add zfs --no-cache
 RUN mkdir -p /run/docker/plugins /mnt/state
 COPY --from=builder /go/bin/docker-zfs-plugin .
 CMD ["docker-zfs-plugin"]
