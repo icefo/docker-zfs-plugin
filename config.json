@@ -2,7 +2,7 @@
   "description": "ZFS plugin for Docker",
   "documentation": "https://docs.docker.com/engine/extend/plugins/",
   "entrypoint": [
-    "/docker-zfs-plugin"
+    "/docker-volume-zfs-plugin"
   ],
   "env": [
     {
@@ -10,11 +10,11 @@
       "settable": [
         "value"
       ],
-      "value": "0"
+      "value": "1"
     }
   ],
   "interface": {
-    "socket": "zfs-v2.sock",
+    "socket": "icefo-zfs-vol.sock",
     "types": [
       "docker.volumedriver/1.0"
     ]
@@ -31,26 +31,14 @@
   },
   "mounts": [
     {
-      "destination": "/mnt/",
-      "options": [
-        "rbind"
-      ],
-      "name": "state",
-      "source": "/var/lib/docker/plugins/",
-      "settable": [
-        "source"
-      ],
-      "type": "bind"
-    },
-    {
-      "destination": "/var/lib/docker/volumes/",
+      "destination": "/mnt/icefo-docker-zfs-volumes/",
       "options": [
         "rbind",
         "rshared",
         "rw"
       ],
       "name": "volumes",
-      "source": "/var/lib/docker/volumes/",
+      "source": "/mnt/icefo-docker-zfs-volumes/",
       "type": "bind"
     }
   ],

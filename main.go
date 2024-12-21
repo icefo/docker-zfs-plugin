@@ -1,7 +1,7 @@
 package main
 
 import (
-	zfsdriver "docker-zfs-plugin/zfs"
+	zfsdriver "docker-volume-zfs-plugin/zfs"
 	"log/slog"
 	"os"
 	"strconv"
@@ -30,15 +30,14 @@ func main() {
 	h := volume.NewHandler(d)
 
 	listeners, _ := activation.Listeners() // wtf coreos, this function never returns errors
-	if len(listeners) > 1 {
-		logger.Warn("driver does not support multiple sockets")
-	}
 	if len(listeners) == 0 {
 		logger.Debug("launching volume handler.")
-		h.ServeUnix("zfs-v2", 0)
-	} else {
+		h.ServeUnix("icefo-zfs-vol", 0)
+	} else if len(listeners) == 1 {
 		l := listeners[0]
 		logger.Debug("launching volume handler", "listener", l.Addr().String())
 		h.Serve(l)
+	} else {
+		logger.Warn("driver does not support multiple sockets")
 	}
 }

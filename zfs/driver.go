@@ -23,20 +23,22 @@ type ZfsDriver struct {
 
 // Where to save the stored volumes/metadata
 const (
-	statePath = "/mnt/zfs-v2-state.json"
+	// Defined in the config
+	propagatedMountPath = "/var/lib/docker/plugins/pluginHash/propagated-mount/"
 	//This is some top-tier garbage code, but the v2 plugin infrastructure always re-scopes any returned mount paths for the
 	//container to where they mount the filesystem. Since we actually return host paths via ZFS, however, we need to somehow
 	//escape this system back to the root namespace. They try to provide a way to do this via the "propagatedmount" infra,
 	//where they replace the specified container path with a base path on the host, but that base is where _they_ decide to
 	//put it, deep in the docker plugin paths where they mount the filesystem, and it includes a variable path token that we
 	//can't get access to here. To get around this, we propagate the same length of path as they would mount us under (just
-	//without the variable hash), and then then peel back the path with repeated ".." so we get to the "real" path from root.
+	//without the variable hash), and then peel back the path with repeated ".." so we get to the "real" path from root.
 	//This variable should be prepended to any mount path that we return out of the plugin to ensure we make all parties
 	//"agree" where things are stored.
-	propagateBase = "/var/lib/docker/plugins/pluginHash/propagated-mount/../../../../../.."
+	hostRootPath = propagatedMountPath + "../../../../../.."
+	statePath    = propagatedMountPath + "icefo-docker-volume-zfs-state.json"
 	//To get a root-relative path that we can have access to in the container, we store things under the usual docker volume
 	//path in the host filesystem and mount that path in.
-	volumeBase = "/var/lib/docker/volumes/"
+	volumeBase = "/mnt/icefo-docker-zfs-volumes/"
 )
 
 // NewZfsDriver returns the plugin driver object
@@ -150,10 +152,10 @@ func (zd *ZfsDriver) Get(req *volume.GetRequest) (*volume.GetResponse, error) {
 	return &volume.GetResponse{Volume: v}, nil
 }
 
-func (zd *ZfsDriver) scopeMount(mountpath string) string {
+func (zd *ZfsDriver) scopeMountPath(mountpath string) string {
 	//We just naively join them with string append rather than invoking filepath.join as that will collapse our ".." hack to
 	//get out to properly mount relative to the root filesystem.
-	return propagateBase + mountpath
+	return hostRootPath + mountpath
 }
 
 func (zd *ZfsDriver) getVolume(name string) (*volume.Volume, error) {
@@ -166,9 +168,8 @@ func (zd *ZfsDriver) getVolume(name string) (*volume.Volume, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	//Need to scope the host path for the container before returning to docker
-	mp = zd.scopeMount(mp)
+	mp = zd.scopeMountPath(mp)
 
 	ts, err := ds.GetCreation()
 	if err != nil {
@@ -191,7 +192,7 @@ func (zd *ZfsDriver) getMP(name string) (string, error) {
 	}
 
 	//Need to scope the host path for the container before returning to docker
-	mp = zd.scopeMount(mp)
+	mp = zd.scopeMountPath(mp)
 
 	return mp, nil
 }
@@ -210,7 +211,7 @@ func (zd *ZfsDriver) Remove(req *volume.RemoveRequest) error {
 		return err
 	}
 
-	delete(zd.volumes, req.Name)
+	delete(zd.volumes, req.Name) // todo check first if dataset is known to only delete dataset created by this plugin
 
 	zd.saveDatasetState()
 

@@ -1,4 +1,4 @@
-module docker-zfs-plugin
+module docker-volume-zfs-plugin
 
 go 1.23
 

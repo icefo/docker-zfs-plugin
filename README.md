@@ -1,4 +1,4 @@
-# docker-zfs-plugin
+# docker-volume-zfs-plugin
 Docker volume plugin for creating persistent volumes as a dedicated zfs dataset.
 
 ## Installation
@@ -55,8 +55,7 @@ volumes:
       name: tank/docker-volumes/data3
       driver: TrilliumIT/zfs
       driver_opts:
-         compression: lz4
-         dedup: on
+         compression: on
 ```
 
 ## Breaking API changes

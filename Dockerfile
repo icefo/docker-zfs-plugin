@@ -9,10 +9,9 @@ COPY . .
 
 RUN go install
 
-CMD ["/go/bin/docker-zfs-plugin"]
 
 FROM alpine:3
 RUN apk upgrade --no-cache && apk add zfs --no-cache
 RUN mkdir -p /run/docker/plugins /mnt/state
-COPY --from=builder /go/bin/docker-zfs-plugin .
-CMD ["docker-zfs-plugin"]
+COPY --from=builder /go/bin/docker-volume-zfs-plugin .
+CMD ["docker-volume-zfs-plugin"]

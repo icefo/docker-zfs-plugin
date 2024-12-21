@@ -1,5 +1,5 @@
-PLUGIN_NAME = icefo/zfs
-PLUGIN_TAG ?= 2.1
+PLUGIN_NAME = icefo/docker-volume-zfs-plugin
+PLUGIN_TAG ?= 2.2
 
 all: clean rootfs create
 
@@ -8,7 +8,7 @@ clean:
 	@rm -rf ./plugin
 
 rootfs:
-	@echo "### docker build: rootfs image with docker-zfs-plugin"
+	@echo "### docker build: rootfs image with docker-volume-zfs-plugin"
 	@docker build -t ${PLUGIN_NAME}:rootfs .
 	@echo "### create rootfs directory in ./plugin/rootfs"
 	@mkdir -p ./plugin/rootfs
