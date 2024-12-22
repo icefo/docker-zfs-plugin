@@ -13,7 +13,12 @@ import (
 func main() {
 	lvl := new(slog.LevelVar)
 	lvl.Set(slog.LevelInfo)
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+	fh, err := os.OpenFile("/mnt/icefo-docker-zfs-volumes/my_app.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		println("Failed to create file handler:", err)
+		os.Exit(1)
+	}
+	logger := slog.New(slog.NewTextHandler(fh, &slog.HandlerOptions{
 		Level: lvl,
 	}))
 

@@ -31,16 +31,16 @@
   },
   "mounts": [
     {
-      "destination": "/mnt/icefo-docker-zfs-volumes/",
+      "destination": "/mnt/icefo-docker-zfs-volumes",
       "options": [
         "rbind",
         "rshared",
         "rw"
       ],
       "name": "volumes",
-      "source": "/mnt/icefo-docker-zfs-volumes/",
+      "source": "/mnt/icefo-docker-zfs-volumes",
       "type": "bind"
     }
   ],
-  "propagatedmount": "/var/lib/docker/plugins/pluginHash/propagated-mount/"
+  "propagatedmount": "/var/lib/docker/plugins/pluginHash/propagated-mount"
 }
