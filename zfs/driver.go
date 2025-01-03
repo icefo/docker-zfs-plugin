@@ -104,6 +104,7 @@ func (zd *ZfsDriver) Create(req *volume.CreateRequest) error {
 	zfsDatasetName := ""
 	if req.Options["driver_zfsRootDataset"] != "" {
 		zfsDatasetName = req.Options["driver_zfsRootDataset"] + "/" + req.Name
+		delete(req.Options, "driver_zfsRootDataset")
 	} else {
 		zfsDatasetName = zd.defaultRootDataset + "/volumes/" + req.Name
 	}
@@ -129,6 +130,9 @@ func (zd *ZfsDriver) Create(req *volume.CreateRequest) error {
 
 	_, err := zfs.CreateDatasetRecursive(zfsDatasetName, req.Options)
 	if err != nil {
+		zd.log.Error("Cannot create ZFS volume", slog.Any("err", err),
+			"zfsDatasetName", zfsDatasetName,
+			"Options", req.Options)
 		return err
 	}
 
