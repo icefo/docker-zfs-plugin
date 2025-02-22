@@ -113,6 +113,29 @@ func (zd *ZfsDriver) Create(req *volume.CreateRequest) error {
 	}
 
 	zd.log.Debug("zfsDatasetName", zfsDatasetName)
+	
+	// Check for a driver-specific mode option.
+	// If "driver_mode" is set to "clone", we expect a snapshot FQN in "driver_clone_snapshot".
+	if req.Options["driver_mode"] == "clone" {
+		if req.Options["driver_clone_snapshot"] == "" {
+			zd.log.Error("missing 'driver_clone_snapshot' option; please provide an existing snapshot FQN")
+			return errors.New("missing 'driver_clone_snapshot' option; please provide an existing snapshot FQN")
+		}
+		snapshotName := req.Options["driver_clone_snapshot"]
+		snapshot, err := zfs.GetSnapshot(snapshotName)
+		if err != nil {
+			zd.log.Error("failed to get snapshot", slog.Any("err", err))
+			return errors.New("failed to get snapshot")
+		}
+		_, err = snapshot.Clone(zfsDatasetName)
+		if err != nil {
+			zd.log.Error("failed to clone snapshot", slog.Any("err", err))
+			return errors.New("failed to clone snapshot")
+		}
+		zd.volumes[req.Name] = VolumeProperties{DatasetFQN: zfsDatasetName}
+		zd.saveDatasetState()
+		return nil
+	}
 
 	//We unfortunately have to refuse the mountpath that the user specifies as we're stuck inside a container and
 	//can't access all of the host filesystem that ZFS mounts things relative to. We explicitly mount the volumeBase path into
