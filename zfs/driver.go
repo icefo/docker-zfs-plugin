@@ -101,11 +101,7 @@ func (zd *ZfsDriver) Create(req *volume.CreateRequest) error {
 	if req.Options == nil {
 		req.Options = make(map[string]string)
 	}
-	// Check if the user provided a mountpoint option; not supported.
-	if req.Options["mountpoint"] != "" {
-		zd.log.Error("mountpoint option is not supported")
-		return errors.New("mountpoint option is not supported")
-	}
+
 	zfsDatasetName := ""
 	if req.Options["driver_zfsRootDataset"] != "" {
 		zfsDatasetName = req.Options["driver_zfsRootDataset"] + "/" + req.Name
@@ -119,8 +115,19 @@ func (zd *ZfsDriver) Create(req *volume.CreateRequest) error {
 
 	zd.log.Debug("zfsDatasetName", zfsDatasetName)
 
-	// Set mountpoint option (common to both modes)
+	//We unfortunately have to refuse the mountpath that the user specifies as we're stuck inside a container and
+	//can't access all of the host filesystem that ZFS mounts things relative to. We explicitly mount the volumeBase path into
+	//the container so that we can mount our volumes there with a consistent filepath between the host and the container. Thus
+	//we need to prepend this path to all mountpaths we pass to ZFS itself when it creates the datasets and sets the host
+	//mountpoints. This is needed to ensure that when ZFS on the host re-mounts the dataset (e.g. on boot) it does so in the
+	//right place.
+	if req.Options["mountpoint"] != "" {
+		zd.log.Error("mountpoint option is not supported")
+		return errors.New("mountpoint option is not supported")
+	}
+
 	req.Options["mountpoint"] = volumeBase + "/volumes/" + req.Name
+
 	zd.log.Debug("mountpoint", req.Options["mountpoint"])
 
 	// Check if a snapshot should be cloned (using the "from-snapshot" option)
