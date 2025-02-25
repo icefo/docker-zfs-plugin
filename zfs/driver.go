@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/clinta/go-zfs"
@@ -102,7 +101,11 @@ func (zd *ZfsDriver) Create(req *volume.CreateRequest) error {
 	if req.Options == nil {
 		req.Options = make(map[string]string)
 	}
-
+	// Check if the user provided a mountpoint option; not supported.
+	if req.Options["mountpoint"] != "" {
+		zd.log.Error("mountpoint option is not supported")
+		return errors.New("mountpoint option is not supported")
+	}
 	zfsDatasetName := ""
 	if req.Options["driver_zfsRootDataset"] != "" {
 		zfsDatasetName = req.Options["driver_zfsRootDataset"] + "/" + req.Name
@@ -114,18 +117,15 @@ func (zd *ZfsDriver) Create(req *volume.CreateRequest) error {
 		return errors.New("volume already exists")
 	}
 
-	// Check for a driver-specific mode option.
-	// If "driver_mode" is set to "clone", we expect a snapshot FQN in "driver_clone_snapshot".
-	if req.Options["driver_mode"] == "clone" {
-		if req.Options["driver_clone_snapshot"] == "" {
-			zd.log.Error("missing 'driver_clone_snapshot' option; please provide an existing snapshot FQN")
-			return errors.New("missing 'driver_clone_snapshot' option; please provide an existing snapshot FQN")
-		}
-		snapshotName := req.Options["driver_clone_snapshot"]
-		// Remove clone specific options so they are not applied as set properties.
-		delete(req.Options, "driver_mode")
-		delete(req.Options, "driver_clone_snapshot")
-		// Use the more feature complete clone implementation for recursive (-p) clone and set options (-o).
+	zd.log.Debug("zfsDatasetName", zfsDatasetName)
+
+	// Set mountpoint option (common to both modes)
+	req.Options["mountpoint"] = volumeBase + "/volumes/" + req.Name
+	zd.log.Debug("mountpoint", req.Options["mountpoint"])
+
+	// Check if a snapshot should be cloned (using the "from-snapshot" option)
+	if snapshotName, ok := req.Options["from-snapshot"]; ok && snapshotName != "" {
+		delete(req.Options, "from-snapshot")
 		cloneOpts := &zfscmd.CloneOpts{
 			CreateParents: true,
 			SetProperties: req.Options,
@@ -139,30 +139,16 @@ func (zd *ZfsDriver) Create(req *volume.CreateRequest) error {
 		return nil
 	}
 
-	//We unfortunately have to refuse the mountpath that the user specifies as we're stuck inside a container and
-	//can't access all of the host filesystem that ZFS mounts things relative to. We explicitly mount the volumeBase path into
-	//the container so that we can mount our volumes there with a consistent filepath between the host and the container. Thus
-	//we need to prepend this path to all mountpaths we pass to ZFS itself when it creates the datasets and sets the host
-	//mountpoints. This is needed to ensure that when ZFS on the host re-mounts the dataset (e.g. on boot) it does so in the
-	//right place.
-	if req.Options["mountpoint"] != "" {
-		zd.log.Error("mountpoint option is not supported")
-		return errors.New("mountpoint option is not supported")
-	}
-	req.Options["mountpoint"] = volumeBase + "/volumes/" + req.Name
-
-	zd.log.Debug("mountpoint", req.Options["mountpoint"])
-
+	// Otherwise, create the dataset normally
 	_, err := zfs.CreateDatasetRecursive(zfsDatasetName, req.Options)
 	if err != nil {
 		zd.log.Error("Cannot create ZFS volume", slog.Any("err", err), "zfsDatasetName", zfsDatasetName, "Options", req.Options)
 		return err
 	}
-
 	zd.volumes[req.Name] = VolumeProperties{DatasetFQN: zfsDatasetName}
 	zd.saveDatasetState()
 
-	return err
+	return nil
 }
 
 // List returns a list of zfs volumes on this host
