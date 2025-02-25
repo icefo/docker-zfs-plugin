@@ -5,9 +5,11 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/clinta/go-zfs"
+	zfscmd "github.com/clinta/go-zfs/cmd"
 	"github.com/docker/go-plugins-helpers/volume"
 )
 
@@ -112,8 +114,6 @@ func (zd *ZfsDriver) Create(req *volume.CreateRequest) error {
 		return errors.New("volume already exists")
 	}
 
-	zd.log.Debug("zfsDatasetName", zfsDatasetName)
-	
 	// Check for a driver-specific mode option.
 	// If "driver_mode" is set to "clone", we expect a snapshot FQN in "driver_clone_snapshot".
 	if req.Options["driver_mode"] == "clone" {
@@ -122,13 +122,15 @@ func (zd *ZfsDriver) Create(req *volume.CreateRequest) error {
 			return errors.New("missing 'driver_clone_snapshot' option; please provide an existing snapshot FQN")
 		}
 		snapshotName := req.Options["driver_clone_snapshot"]
-		snapshot, err := zfs.GetSnapshot(snapshotName)
-		if err != nil {
-			zd.log.Error("failed to get snapshot", slog.Any("err", err))
-			return errors.New("failed to get snapshot")
+		// Remove clone specific options so they are not applied as set properties.
+		delete(req.Options, "driver_mode")
+		delete(req.Options, "driver_clone_snapshot")
+		// Use the more feature complete clone implementation for recursive (-p) clone and set options (-o).
+		cloneOpts := &zfscmd.CloneOpts{
+			CreateParents: true,
+			SetProperties: req.Options,
 		}
-		_, err = snapshot.Clone(zfsDatasetName)
-		if err != nil {
+		if err := zfscmd.Clone(snapshotName, zfsDatasetName, cloneOpts); err != nil {
 			zd.log.Error("failed to clone snapshot", slog.Any("err", err))
 			return errors.New("failed to clone snapshot")
 		}
@@ -153,14 +155,11 @@ func (zd *ZfsDriver) Create(req *volume.CreateRequest) error {
 
 	_, err := zfs.CreateDatasetRecursive(zfsDatasetName, req.Options)
 	if err != nil {
-		zd.log.Error("Cannot create ZFS volume", slog.Any("err", err),
-			"zfsDatasetName", zfsDatasetName,
-			"Options", req.Options)
+		zd.log.Error("Cannot create ZFS volume", slog.Any("err", err), "zfsDatasetName", zfsDatasetName, "Options", req.Options)
 		return err
 	}
 
 	zd.volumes[req.Name] = VolumeProperties{DatasetFQN: zfsDatasetName}
-
 	zd.saveDatasetState()
 
 	return err
