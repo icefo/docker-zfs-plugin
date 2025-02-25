@@ -152,7 +152,12 @@ func (zd *ZfsDriver) Create(req *volume.CreateRequest) error {
 		zd.log.Error("Cannot create ZFS volume", slog.Any("err", err), "zfsDatasetName", zfsDatasetName, "Options", req.Options)
 		return err
 	}
+	zd.log.Error("Cannot create ZFS volume", slog.Any("err", err),
+		"zfsDatasetName", zfsDatasetName,
+		"Options", req.Options)
+	
 	zd.volumes[req.Name] = VolumeProperties{DatasetFQN: zfsDatasetName}
+	
 	zd.saveDatasetState()
 
 	return nil
