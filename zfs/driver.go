@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/clinta/go-zfs"
+	zfscmd "github.com/clinta/go-zfs/cmd"
 	"github.com/docker/go-plugins-helpers/volume"
 )
 
@@ -124,10 +125,28 @@ func (zd *ZfsDriver) Create(req *volume.CreateRequest) error {
 		zd.log.Error("mountpoint option is not supported")
 		return errors.New("mountpoint option is not supported")
 	}
+
 	req.Options["mountpoint"] = volumeBase + "/volumes/" + req.Name
 
 	zd.log.Debug("mountpoint", req.Options["mountpoint"])
 
+	// Check if a snapshot should be cloned (using the "from-snapshot" option)
+	if snapshotName, ok := req.Options["from-snapshot"]; ok && snapshotName != "" {
+		delete(req.Options, "from-snapshot")
+		cloneOpts := &zfscmd.CloneOpts{
+			CreateParents: true,
+			SetProperties: req.Options,
+		}
+		if err := zfscmd.Clone(snapshotName, zfsDatasetName, cloneOpts); err != nil {
+			zd.log.Error("failed to clone snapshot", slog.Any("err", err))
+			return errors.New("failed to clone snapshot")
+		}
+		zd.volumes[req.Name] = VolumeProperties{DatasetFQN: zfsDatasetName}
+		zd.saveDatasetState()
+		return nil
+	}
+
+	// Otherwise, create the dataset normally
 	_, err := zfs.CreateDatasetRecursive(zfsDatasetName, req.Options)
 	if err != nil {
 		zd.log.Error("Cannot create ZFS volume", slog.Any("err", err),
@@ -140,7 +159,7 @@ func (zd *ZfsDriver) Create(req *volume.CreateRequest) error {
 
 	zd.saveDatasetState()
 
-	return err
+	return nil
 }
 
 // List returns a list of zfs volumes on this host
