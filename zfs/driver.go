@@ -156,7 +156,7 @@ func (zd *ZfsDriver) Create(req *volume.CreateRequest) error {
 	}
 
 	zd.volumes[req.Name] = VolumeProperties{DatasetFQN: zfsDatasetName}
-	
+
 	zd.saveDatasetState()
 
 	return nil
